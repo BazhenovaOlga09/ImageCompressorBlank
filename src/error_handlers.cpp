@@ -1,62 +1,63 @@
 #include "error_handlers.h"
 
+#include <fstream>
+#include <iostream>
+#include <string>
+
 struct GlobalLogFile {
     std::fstream file;
     bool verbose = false;
+    bool is_open = false;
+};
 
-    void close() {
-        if (file.is_open()) {
-            file.close();
-        }
-    }
-
-    void open(const std::string& filename, bool verbose) {
-        file.open(filename, std::ios::out);
-        if (!file.is_open()) {
-            throw std::runtime_error("Cannot open log file");
-        }
-        this->verbose = verbose;
-    }
-} global_log_file;
+GlobalLogFile global_log_file;
 
 void openLogFile(const std::string& filename, bool verbose) {
-    global_log_file.open(filename, verbose);
+    global_log_file.file.open(filename, std::ios::out | std::ios::trunc);
+    global_log_file.verbose = verbose;
+    global_log_file.is_open = global_log_file.file.is_open();
 }
 
-void closeLogFile() { global_log_file.close(); }
+void closeLogFile() {
+    if (global_log_file.is_open) {
+        global_log_file.file.close();
+        global_log_file.is_open = false;
+    }
+}
+
+static std::string severityToString(Severity severity) {
+    switch (severity) {
+        case Severity::INFO:
+            return "INFO";
+        case Severity::WARNING:
+            return "WARNING";
+        case Severity::ERROR:
+            return "ERROR";
+        case Severity::CRITICAL:
+            return "CRITICAL";
+    }
+    return "UNKNOWN";
+}
 
 void handleLogMessage(
     const std::string& message, Severity severity, int exit_code, std::fstream& output) {
-    switch (severity) {
-        case Severity::INFO:
-            output << "[INFO]: ";
-            break;
-        case Severity::WARNING:
-            output << "[WARNING]: ";
-            break;
-        case Severity::ERROR:
-            output << "[ERROR]: ";
-            break;
-        case Severity::CRITICAL:
-            output << "[CRITICAL]: ";
-            break;
-    }
-
-    output << message << std::endl;
-
+    output << "[" << severityToString(severity) << "] " << message << std::endl;
     if (severity == Severity::CRITICAL) {
-        exit(exit_code);
+        std::exit(exit_code);
     }
 }
 
 void handleLogMessage(const std::string& message, Severity severity, int exit_code) {
-    if (global_log_file.verbose || severity == Severity::CRITICAL || severity == Severity::ERROR) {
+    if (global_log_file.is_open) {
         handleLogMessage(message, severity, exit_code, global_log_file.file);
+    } else {
+        std::cerr << "[" << severityToString(severity) << "] " << message << std::endl;
+        if (severity == Severity::CRITICAL) {
+            std::exit(exit_code);
+        }
     }
 }
 
 void handleLogMessage(const std::string& message) {
-    if (global_log_file.verbose) {
-        handleLogMessage(message, Severity::INFO, 0, global_log_file.file);
-    }
+    handleLogMessage(message, Severity::INFO, 0);
 }

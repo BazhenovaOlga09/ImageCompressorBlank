@@ -38,9 +38,7 @@ void BMP::read(const char* fname) {
         }
         inp.read((char*)&bmp_info_header, sizeof(bmp_info_header));
 
-        // The BMPColorHeader is used only for transparent images
         if (bmp_info_header.bit_count == 32) {
-            // Check if the file has bit mask color information
             if (bmp_info_header.size >= (sizeof(BMPInfoHeader) + sizeof(BMPColorHeader))) {
                 inp.read((char*)&bmp_color_header, sizeof(bmp_color_header));
             } else {
@@ -50,11 +48,8 @@ void BMP::read(const char* fname) {
             }
         }
 
-        // Jump to the pixel data location
         inp.seekg(file_header.offset_data, inp.beg);
 
-        // Adjust the header fields for output.
-        // Some editors will put extra bytes at the end of the file
         if (bmp_info_header.bit_count == 32) {
             bmp_info_header.size = sizeof(BMPInfoHeader) + sizeof(BMPColorHeader);
             file_header.offset_data =
@@ -72,7 +67,6 @@ void BMP::read(const char* fname) {
 
         data.resize(bmp_info_header.width * bmp_info_header.height * bmp_info_header.bit_count / 8);
 
-        // Here we check if we need to take into account row padding
         if (bmp_info_header.width % 4 == 0) {
             inp.read((char*)data.data(), data.size());
             file_header.file_size += data.size();
@@ -142,7 +136,6 @@ uint32_t BMP::make_stride_aligned(uint32_t align_stride) {
 }
 
 void BMP::set_pixel(int32_t x, int32_t y, uint8_t r, uint8_t g, uint8_t b) {
-    // y = bmp_info_header.height - 1 - y;
     uint32_t channels = bmp_info_header.bit_count / 8;
     uint32_t index = (y * bmp_info_header.width + x) * channels;
     data[index] = b;
@@ -151,7 +144,6 @@ void BMP::set_pixel(int32_t x, int32_t y, uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void BMP::set_pixel(int x, int y, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-    // y = bmp_info_header.height - 1 - y;
     uint32_t channels = bmp_info_header.bit_count / 8;
     uint32_t index = (y * bmp_info_header.width + x) * channels;
     data[index] = b;
